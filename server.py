@@ -19,7 +19,7 @@ except ImportError:
     print("Could not import perth for monkeypatching. Proceeding anyway.")
 # ------------------------------------------------
 
-from chatterbox.tts import ChatterboxTTS
+from chatterbox.tts_turbo import ChatterboxTurboTTS
 
 app = FastAPI()
 model = None
@@ -27,46 +27,54 @@ model = None
 
 class TTSRequest(BaseModel):
     text: str
+    audio_prompt_path: str = None
 
 
 @app.on_event("startup")
 def load_model():
     global model
-    print("Loading Chatterbox model...")
+    print("Loading Chatterbox Turbo model...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
-    model = ChatterboxTTS.from_pretrained(device=device)
+    model = ChatterboxTurboTTS.from_pretrained(device=device)
+    
+    # Pre-load default voice if available
+    try:
+        print("Loading default voice from record.wav...")
+        model.prepare_conditionals("record.wav")
+        print("Default voice loaded.")
+    except Exception as e:
+        print(f"Warning: Could not load default voice 'record.wav': {e}")
+        print("You must provide `audio_prompt_path` in requests.")
+    
     print("Model loaded.")
 
 
 @app.post("/generate")
 def generate_audio(request: TTSRequest):
-    if not model:
-        raise HTTPException(status_code=503, detail="Model not loaded")
+    # if request.audio_prompt_path is None:
+    #     raise HTTPException(400, "audio_prompt_path is required (zero-shot cloning)")
 
     try:
-        # Generate Returns a Tensor usually (1, Time) or (Time,)
-        wav = model.generate(request.text)
-        print(f"Generated WAV shape: {wav.shape}")
+        wav = model.generate(
+            request.text,
+            # audio_prompt_path=request.audio_prompt_path,
+            # You can add temperature, top_p etc if the method supports them
+        )
 
-        # Ensure CPU and Numpy
-        audio_np = wav.cpu().numpy()
-
-        # Squeeze to 1D if it's (1, N) -> (N,)
-        if len(audio_np.shape) == 2 and audio_np.shape[0] == 1:
-            audio_np = audio_np.squeeze(0)
-
-        print(f"Final numpy shape: {audio_np.shape}")
-
-        # Scale float32 (-1 to 1) to int16 for compatibility if needed,
-        # but soundfile/scipy usually handle float32 nicely.
-        # Let's stick to soundfile but with correct 1D shape.
+        audio_np = wav.cpu().numpy().squeeze()
+        if audio_np.ndim != 1:
+            raise ValueError(f"Unexpected audio shape: {audio_np.shape}")
 
         buffer = io.BytesIO()
-        sf.write(buffer, audio_np, model.sr, format="WAV")
+        sf.write(buffer, audio_np, model.sr, format="WAV", subtype="PCM_16")
         buffer.seek(0)
 
         return Response(content=buffer.read(), media_type="audio/wav")
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(500, str(e))
 
     except Exception as e:
         print(f"Error generating audio: {e}")
