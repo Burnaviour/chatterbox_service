@@ -1,20 +1,20 @@
 [tool.uv]
 index = [
-    { name = "pytorch-nightly", url = "https://download.pytorch.org/whl/nightly/cu128", explicit = true },
+    { name = "pytorch-stable", url = "https://download.pytorch.org/whl/cu126", explicit = true },
 ]
 required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 override-dependencies = [
-    "torch>=2.7.0.dev",
-    "torchaudio>=2.7.0.dev",
-    "torchvision>=0.22.0.dev",
+    "torch==2.6.0+cu126",
+    "torchaudio==2.6.0+cu126",
+    "torchvision==0.21.0+cu126",
 ]
 
 [tool.uv.sources]
-torch = { index = "pytorch-nightly" }
-torchaudio = { index = "pytorch-nightly" }
-torchvision = { index = "pytorch-nightly" }
+torch = { index = "pytorch-stable" }
+torchaudio = { index = "pytorch-stable" }
+torchvision = { index = "pytorch-stable" }
 
 [project]
 name = "chatterbox-service"
