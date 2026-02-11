@@ -76,7 +76,7 @@ def generate_audio(request: TTSRequest):
         wav = multilingual_model.generate(
             request.text,
             language_id=language_id,
-            audio_prompt_path='record.wav',cfg_weight=0.5,exaggeration=0.5
+            audio_prompt_path='record.wav',cfg_weight=0.3,exaggeration=0.7
         )
 
         audio_np = wav.cpu().numpy().squeeze()
